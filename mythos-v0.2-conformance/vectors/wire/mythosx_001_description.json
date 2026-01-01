@@ -1,0 +1,8 @@
+{
+  "codebook_id": "7ed509c74d47db2ebbb0608a8aa5135208ee8abec769473830c7449cfe9ec37a",
+  "codec_id": 1,
+  "flags": 0,
+  "payload_sha256": "798ae4a911ef600d04aa305ed7fb71e59d26b195ae78c7c6a52e4f650c18cf04",
+  "signing_rule": "signature verifies Ed25519 over SHA-256(header||payload) (vector rule)",
+  "version": 2
+}

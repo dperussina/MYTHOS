@@ -1,0 +1,8 @@
+{
+  "commit_id_recommended": "7be23cd78504ae4c980e7df6277749976d1329c1e723c152cdf110572e42376b",
+  "idempotency_id": "7f24e6dcd855c1cec0f714e71e9721ecb75055274361f658b3813eceff0ae6d3",
+  "idempotency_key": "6964656d3a303031",
+  "lease_expires_us": 1700000030000000,
+  "register_id_recommended": "e2fc089f8e128c097410374b5fe59f9f052587968e304d1b570964bb3babcf9a",
+  "tool_id": "d5762d1026d1cfab5015b4821a0aa1f8d3ae1dea85084b3122ea63a7a4244458"
+}

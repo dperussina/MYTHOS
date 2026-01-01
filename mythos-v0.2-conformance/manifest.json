@@ -1,0 +1,141 @@
+{
+  "pack": "mythos-v0.2-conformance",
+  "vectors": [
+    {
+      "description": "Canonical encoding of Hash{alg=1, bytes=32 zero bytes}.",
+      "expected": {
+        "sha256_of_bin": "57732c41f444232c46ed7eb580988820df3fc7b13f2bcd2bd5521b0334b50571"
+      },
+      "files": {
+        "bin": "vectors/can/hash_001.bin",
+        "json": "vectors/can/hash_001.json"
+      },
+      "id": "CAN_001",
+      "rfc_reference": "RFC-MYTHOS-0001 \u00a76; RFC-MYTHOS-0002 Appendix A.1"
+    },
+    {
+      "description": "Canonical encoding of AgentID{scheme=1, key=Ed25519 public key, hint='ctvp'}.",
+      "expected": {
+        "sha256_of_bin": "7114686adea2097a7b16d32d5137b2175ad6914b4e03d2fe50ad091a71be690a"
+      },
+      "files": {
+        "bin": "vectors/can/agentid_001.bin",
+        "json": "vectors/can/agentid_001.json"
+      },
+      "id": "CAN_002",
+      "rfc_reference": "RFC-MYTHOS-0002 Appendix A.3"
+    },
+    {
+      "description": "Canonical ordering of MAP keys by encoded key bytes (\"a\" before \"b\").",
+      "expected": {
+        "sha256_of_bin": "4672010897413599f0b55c887c0876477dc48a15808eb7a516517820623d91d7"
+      },
+      "files": {
+        "bin": "vectors/can/map_order_001.bin",
+        "json": "vectors/can/map_order_001.json"
+      },
+      "id": "CAN_003",
+      "rfc_reference": "SPEC.md \u00a76"
+    },
+    {
+      "description": "MerkleList with 10 EpisodeIDs in a single leaf node; root CID equals leaf CID.",
+      "expected": {
+        "root_cid": "af3a30050b542dcba9903f244280ea6c0f3797eb56869f278b2a7df90cf237d4"
+      },
+      "files": {
+        "input_json": "vectors/merkle/merklelist_001_input.json",
+        "leaf_bin": "vectors/merkle/merklelist_001_leaf.bin",
+        "rootcid_hex": "vectors/merkle/merklelist_001_rootcid.hex"
+      },
+      "id": "MERKLE_001",
+      "rfc_reference": "RFC-MYTHOS-0004 \u00a75"
+    },
+    {
+      "description": "ChunkedBlob root node is a single ChunkLeaf; includes per-chunk SHA-256 hashes and root CID.",
+      "expected": {
+        "chunk_count": 3,
+        "root_cid": "ea8aff585cecd24cc005789a45b07c39550650606c7d18054f4bf4879558bad3"
+      },
+      "files": {
+        "chunks_json": "vectors/blob/chunkedblob_001_chunks.json",
+        "payload_bin": "vectors/blob/chunkedblob_001_payload.bin",
+        "rootcid_hex": "vectors/blob/chunkedblob_001_rootcid.hex",
+        "rootnode_bin": "vectors/blob/chunkedblob_001_rootnode.bin"
+      },
+      "id": "BLOB_001",
+      "rfc_reference": "RFC-MYTHOS-0004 \u00a76"
+    },
+    {
+      "description": "Receipt: receipt_id = SHA-256(canonical bytes excluding fields 1 and 11). Signature is Ed25519 over receipt_id bytes.",
+      "expected": {
+        "receipt_id": "0edba8b8f9547e0977cec96eb37d0e117e0c2718e7d69737ef17e8f1d9ce32cd"
+      },
+      "files": {
+        "bin": "vectors/receipts/receipt_001.bin",
+        "json": "vectors/receipts/receipt_001.json",
+        "receipt_id_hex": "vectors/receipts/receipt_001_id.hex"
+      },
+      "id": "RECEIPT_001",
+      "rfc_reference": "RFC-MYTHOS-0002 Appendix A.9"
+    },
+    {
+      "description": "EffectRegister + EffectCommit for a single idempotency key, including IdempotencyID and recommended register/commit id signatures.",
+      "expected": {
+        "idempotency_id": "7f24e6dcd855c1cec0f714e71e9721ecb75055274361f658b3813eceff0ae6d3"
+      },
+      "files": {
+        "commit_bin": "vectors/ledger/ledger_001_commit.bin",
+        "idemid_hex": "vectors/ledger/ledger_001_idemid.hex",
+        "json": "vectors/ledger/ledger_001.json",
+        "register_bin": "vectors/ledger/ledger_001_register.bin"
+      },
+      "id": "LEDGER_001",
+      "rfc_reference": "RFC-MYTHOS-0005 \u00a74-\u00a77; Appendix A"
+    },
+    {
+      "description": "DatasetDef with predicate TRUE and HASH_N sampling (N=5). Includes expected selected EpisodeIDs and manifest root CID.",
+      "expected": {
+        "dataset_def_id": "657359c72deb1a8393b0bc47474e324e7f0d55963df458d053f2232bf0d251f4",
+        "manifest_root_cid": "b62391afb835b9fc8649105413c94d9e6090c97103eb7bc10a46e9be4c60c073"
+      },
+      "files": {
+        "corpus_rootcid_hex": "vectors/dataset/dataset_001_corpus_rootcid.hex",
+        "corpus_rootnode_bin": "vectors/dataset/dataset_001_corpus_rootnode.bin",
+        "dataset_def_bin": "vectors/dataset/dataset_001_def.bin",
+        "dataset_defid_hex": "vectors/dataset/dataset_001_defid.hex",
+        "manifest_rootcid_hex": "vectors/dataset/dataset_001_manifest_rootcid.hex",
+        "manifest_rootnode_bin": "vectors/dataset/dataset_001_manifest_rootnode.bin",
+        "selected_json": "vectors/dataset/dataset_001_selected.json"
+      },
+      "id": "DATASET_001",
+      "rfc_reference": "RFC-MYTHOS-0003 \u00a75-\u00a77"
+    },
+    {
+      "description": "Baseline codebook entry list (encoded) and CodebookID = SHA-256(canonical_bytes(list(entries))).",
+      "expected": {
+        "codebook_id": "7ed509c74d47db2ebbb0608a8aa5135208ee8abec769473830c7449cfe9ec37a",
+        "entry_count": 541
+      },
+      "files": {
+        "codebook_id_hex": "vectors/codebook/codebook_baseline_id.hex",
+        "entries_bin": "vectors/codebook/codebook_baseline_entries.bin",
+        "meta_json": "vectors/codebook/codebook_baseline_meta.json"
+      },
+      "id": "CODEBOOK_001",
+      "rfc_reference": "RFC-MYTHOS-0002 Appendix B"
+    },
+    {
+      "description": "MYTHOS-X packet framing with one SigBlockEntry and a minimal IRBundle payload.",
+      "expected": {
+        "packet_sha256": "eabfe97cb2749acc544c6bb4d42c10c17b60e676c37043d66c05d50338a285cc"
+      },
+      "files": {
+        "description_json": "vectors/wire/mythosx_001_description.json",
+        "packet_bin": "vectors/wire/mythosx_001_packet.bin"
+      },
+      "id": "WIRE_001",
+      "rfc_reference": "RFC-MYTHOS-0001 \u00a78 (framing); CTVP vector rule for signing"
+    }
+  ],
+  "version": "0.2"
+}

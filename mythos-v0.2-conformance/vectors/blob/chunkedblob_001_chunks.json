@@ -1,0 +1,21 @@
+{
+  "chunk_size": 4096,
+  "chunks": [
+    {
+      "chunk_hash": "f170b718fe0c59ad50fc617cdb464af09325f9a8f498ce509b908c46f34ac7ef",
+      "index": 0,
+      "len": 4096
+    },
+    {
+      "chunk_hash": "6896d9ea3f73a4434f5832bc65714e7d066f177373f36f34dc8a6f735daa41b1",
+      "index": 1,
+      "len": 4096
+    },
+    {
+      "chunk_hash": "0c246dfa26698c8d3c9cc533ba88d81ea60101b1edd168a5a90368ae014fbe94",
+      "index": 2,
+      "len": 1833
+    }
+  ],
+  "total_size": 10025
+}
