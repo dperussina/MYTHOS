@@ -1495,3 +1495,627 @@ Dataset queries can leak sensitive attributes through selection. Access to corpu
 ## 10. Privacy Considerations
 
 Datasets SHOULD prefer redacted episodes and minimized traces when feasible.
+
+# RFC-MYTHOS-0004
+
+## Merkle Lists and Merkle DAGs for Blobs and Manifests (v0.2)
+
+**Category:** Standards Track (Draft)
+**Intended Status:** Proposed Standard
+**Version:** 0.2
+
+---
+
+## 1. Abstract
+
+This RFC specifies the canonical Merkle node formats and construction rules used by MYTHOS for:
+
+* Merkle lists (ordered lists of hashes, such as EpisodeID manifests)
+* Merkle DAGs for chunked blobs
+
+All compliant implementations MUST produce identical root CIDs and identical node bytes for the same inputs.
+
+---
+
+## 2. Conventions
+
+The terms **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**, **SHALL NOT**, **SHOULD**, **SHOULD NOT**, **RECOMMENDED**, **MAY**, and **OPTIONAL** are to be interpreted per RFC 2119.
+
+This RFC depends on canonical encoding rules from RFC-MYTHOS-0001 (MYTHOS-CAN and SHA-256).
+
+---
+
+## 3. Terminology
+
+**Merkle Node:** A canonical encoded object whose CID is `SHA-256(node_bytes)`.
+
+**CID:** Content identifier. In v0.2, CID is a Hash struct with alg=1 (SHA-256).
+
+**Fanout:** The maximum number of children in an internal Merkle node.
+
+**Leaf Node:** A node that contains values (hashes) or blob chunk descriptors.
+
+**Internal Node:** A node that contains references to child node CIDs.
+
+---
+
+## 4. Global Constants (Normative)
+
+### 4.1 Hash Algorithm
+
+All Merkle node CIDs MUST be computed with SHA-256 (alg=1).
+
+### 4.2 Node Version
+
+All Merkle nodes MUST set `version = 1`.
+
+### 4.3 Fanout
+
+For v0.2, `fanout = 1024` is REQUIRED for all Merkle nodes.
+
+Implementations MUST NOT vary fanout in v0.2.
+
+### 4.4 Sorting
+
+Unless stated otherwise, lists of hashes within a node MUST be stored in the exact order defined by the construction algorithm. Implementations MUST NOT sort values inside nodes.
+
+---
+
+## 5. MerkleList
+
+MerkleList represents an ordered list of Hash values.
+
+### 5.1 MerkleList Use Cases
+
+* EpisodeID manifests
+* Any stable ordered list of hashes (dataset manifests, model component manifests)
+
+### 5.2 MerkleList Node Types
+
+MerkleList uses two node kinds:
+
+* Leaf: stores an ordered list of Hash values
+* Internal: stores an ordered list of child node CIDs
+
+### 5.3 MerkleListLeaf
+
+A leaf contains:
+
+* ordered list of `values` (Hash)
+
+Leaf size constraint:
+
+* A leaf MUST contain 1 to fanout values.
+
+### 5.4 MerkleListInternal
+
+An internal node contains:
+
+* ordered list of `children` (Hash) where each child is a Merkle node CID
+* `count` total number of values in the subtree
+
+Internal size constraint:
+
+* An internal node MUST contain 2 to fanout children.
+
+### 5.5 MerkleList Construction (Normative)
+
+Given input ordered list `V[0..N-1]` of Hash values:
+
+1. Partition V into consecutive groups of at most fanout values.
+2. For each group, create a MerkleListLeaf node with `values = group`.
+3. If there is only one leaf, root CID is leaf CID.
+4. Otherwise, iteratively build upper layers:
+
+   * Partition the list of child CIDs into consecutive groups of at most fanout.
+   * For each group, create a MerkleListInternal node with:
+
+     * `children = group`
+     * `count = sum(count(child))` where leaf count is len(values)
+   * Repeat until a single root node exists.
+
+The root CID is the CID of the final node.
+
+### 5.6 MerkleList Inclusion Proofs (Optional)
+
+Implementations MAY provide proofs. A proof consists of:
+
+* the leaf node bytes
+* the path of sibling CIDs from leaf to root
+
+Proof verification MUST:
+
+* recompute the CID of the provided leaf bytes
+* recompute each parent CID from canonical internal node bytes
+* match the known root CID
+
+---
+
+## 6. ChunkedBlob DAG
+
+ChunkedBlob DAG represents a binary blob split into chunks, with deterministic root CID.
+
+### 6.1 Chunking Rules
+
+Chunking is required when blob size exceeds the inline limit defined by RFC-MYTHOS-0001.
+
+For v0.2:
+
+* Default chunk size SHOULD be 4 MiB.
+* Chunk size MUST be in [256 KiB, 16 MiB].
+* Chunk size MUST be explicitly recorded in the leaf nodes.
+
+### 6.2 Chunk Hashing
+
+Each chunk has:
+
+* `chunk_bytes` as stored (after codec and encryption steps per system policy)
+* `chunk_hash = SHA-256(chunk_bytes)`
+
+Chunk hashes MUST be computed over the exact bytes stored in the blob store.
+
+### 6.3 ChunkLeaf
+
+A ChunkLeaf node contains:
+
+* `chunk_size` (u32)
+* `chunks` ordered list of ChunkDesc
+* `total_size` (u64) total bytes in the subtree
+
+ChunkDesc contains:
+
+* `hash` (Hash)
+* `len` (u32) actual chunk length in bytes
+
+Leaf constraints:
+
+* A ChunkLeaf MUST contain 1 to fanout ChunkDesc entries.
+
+### 6.4 ChunkInternal
+
+A ChunkInternal node contains:
+
+* `chunk_size` (u32)
+* `children` ordered list of child node CIDs
+* `total_size` (u64)
+* `chunk_count` (u64)
+
+Internal constraints:
+
+* A ChunkInternal MUST contain 2 to fanout children.
+* All children MUST have the same chunk_size.
+
+### 6.5 ChunkedBlob Construction (Normative)
+
+Given blob bytes `B` and chosen chunk_size `S`:
+
+1. Split B into consecutive chunks `C0..Ck-1` where each Ci has length `len_i` and `0 < len_i <= S`.
+2. Compute each `chunk_hash_i = SHA-256(Ci)`.
+3. Create ChunkLeaf nodes by grouping ChunkDesc entries in order, up to fanout per leaf.
+4. Build upper layers similarly to MerkleList construction, but using ChunkInternal nodes and including:
+
+   * `chunk_size = S`
+   * `total_size = sum(child.total_size)`
+   * `chunk_count = sum(child.chunk_count)` where leaf chunk_count is len(chunks)
+5. The root CID is the CID of the final node.
+
+### 6.6 BlobRef Rules
+
+For a chunked blob:
+
+* BlobRef.cid MUST equal the root CID of the ChunkedBlob DAG.
+* BlobRef.chunks MUST equal the root node chunk_count, truncated to u32 if <= 2^32-1. If larger, BlobRef.chunks MUST be set to 0 and chunk_count MUST be read from the root node.
+* BlobRef.size MUST equal total_size.
+
+---
+
+## 7. Streaming Verification (Normative)
+
+A compliant runtime MUST be able to verify a streamed chunk against a BlobRef.cid.
+
+### 7.1 Verification Inputs
+
+* BlobRef (root CID)
+* Chunk index i (0-based)
+* Chunk bytes Ci
+* A proof consisting of:
+
+  * the leaf node bytes containing chunk i
+  * the chain of parent nodes to the root
+
+### 7.2 Verification Procedure
+
+1. Compute `h = SHA-256(Ci)`.
+2. Verify leaf node bytes are canonical and compute leaf CID.
+3. Verify the leaf contains ChunkDesc at index i within its covered range, and that ChunkDesc.hash equals h and ChunkDesc.len equals len(Ci).
+4. Walk up the parent chain:
+
+   * for each parent node bytes, verify canonical encoding
+   * verify that it references the previous node CID at the correct child position
+   * compute parent CID
+5. The final computed CID MUST equal BlobRef.cid.
+
+If any step fails, the chunk MUST be rejected.
+
+---
+
+## 8. Canonical Merkle Node Encoding
+
+Merkle nodes MUST be encoded using MYTHOS-CAN.
+
+### 8.1 MerkleNode
+
+MerkleNode is a struct with:
+
+* `version` (u8)
+* `kind` (u8)
+* `payload` (bytes) containing a canonical nested struct depending on kind
+
+Kind ids:
+
+* 1 MerkleListLeaf
+* 2 MerkleListInternal
+* 3 ChunkLeaf
+* 4 ChunkInternal
+
+The nested payload struct MUST be MYTHOS-CAN encoded and placed in `payload` as bytes.
+
+### 8.2 CID Computation
+
+CID for any Merkle node is:
+
+* `cid = SHA-256( canonical_bytes(MerkleNode) )`
+
+---
+
+## 9. Appendix A, Field Numbers (Normative)
+
+### A.1 MerkleNode
+
+Struct `MerkleNode` fields:
+
+1. `version` (u8)
+2. `kind` (u8)
+3. `payload` (bytes)
+
+### A.2 MerkleListLeaf
+
+Struct `MerkleListLeaf` fields:
+
+1. `values` (list(Hash))
+
+### A.3 MerkleListInternal
+
+Struct `MerkleListInternal` fields:
+
+1. `children` (list(Hash))
+2. `count` (u64)
+
+### A.4 ChunkDesc
+
+Struct `ChunkDesc` fields:
+
+1. `hash` (Hash)
+2. `len` (u32)
+
+### A.5 ChunkLeaf
+
+Struct `ChunkLeaf` fields:
+
+1. `chunk_size` (u32)
+2. `chunks` (list(ChunkDesc))
+3. `total_size` (u64)
+
+### A.6 ChunkInternal
+
+Struct `ChunkInternal` fields:
+
+1. `chunk_size` (u32)
+2. `children` (list(Hash))
+3. `total_size` (u64)
+4. `chunk_count` (u64)
+
+---
+
+# RFC-MYTHOS-0005
+
+## Receipt Ledger and Idempotent Effects (v0.2)
+
+**Category:** Standards Track (Draft)
+**Intended Status:** Proposed Standard
+**Version:** 0.2
+
+---
+
+## 1. Abstract
+
+This RFC specifies:
+
+* The receipt ledger data model
+* Idempotency keys and idempotency records
+* Replay, retry, and conflict rules for EFFECT execution
+
+The goal is deterministic, auditable effect handling with strong at-most-once guarantees within MYTHOS, while acknowledging that external systems may provide weaker guarantees.
+
+---
+
+## 2. Goals
+
+1. Provide a canonical, append-only record of effect attempts and outcomes.
+2. Provide deterministic deduplication and replay behavior.
+3. Prevent divergent side effects from repeated submissions.
+4. Enable safe retries and takeover after failures.
+
+---
+
+## 3. Terminology
+
+**Effect Attempt:** A single external invocation of a tool.
+
+**Idempotency Key:** A caller-provided byte string used to deduplicate effect attempts.
+
+**Idempotency Record:** The canonical ledger record for an idempotency key within a scope.
+
+**Pending:** The state where a request is registered but no final result is committed.
+
+**Completed:** The state where a receipt for a successful or failed attempt is committed.
+
+**Divergent:** The state where conflicting receipts exist for the same idempotency record.
+
+---
+
+## 4. Idempotency Scope and IdempotencyID
+
+### 4.1 Required IdempotencyID
+
+For each effect call that intends replay safety, the runtime MUST compute:
+
+`IdempotencyID = SHA-256( tool_id.bytes || idempotency_key )`
+
+Where:
+
+* tool_id is the ToolID (Hash) for the effect
+* idempotency_key is the byte string provided in the effect input
+
+### 4.2 Scope Considerations
+
+v0.2 defines scope as (tool_id, idempotency_key) only.
+
+Implementations MAY extend scope by including a CapID or AgentID. If extended scope is used, both caller and runtime MUST agree, and the exact scope computation MUST be included as a policy object and signed.
+
+---
+
+## 5. Receipt Ledger Model
+
+### 5.1 Append-Only Requirement
+
+The ledger MUST be append-only. Entries MUST NOT be deleted or modified.
+
+### 5.2 Ledger Partitioning
+
+The ledger SHOULD be sharded by IdempotencyID using cells (RFC-MYTHOS-0001 Section 15). Each shard MAY be stored as a cell keyed by IdempotencyID.
+
+### 5.3 Ledger Entry Types
+
+The ledger contains entries of three kinds:
+
+* Register (Pending)
+* Commit (Completed)
+* MarkDivergent
+
+---
+
+## 6. Canonical Ledger Objects
+
+### 6.1 EffectRegister
+
+EffectRegister records an intent to perform an effect.
+
+Fields include:
+
+* IdempotencyID
+* tool_id
+* request_hash
+* idempotency_key
+* owner (AgentID) who holds the lease
+* lease_expires_at
+* time_observed
+* signature
+
+### 6.2 EffectCommit
+
+EffectCommit records the final result for an effect attempt.
+
+Fields include:
+
+* IdempotencyID
+* tool_id
+* request_hash
+* response_hash
+* receipt_id
+* status
+* time_observed
+* signature
+
+### 6.3 DivergenceMark
+
+DivergenceMark records that the record is divergent and must not be replayed automatically.
+
+Fields include:
+
+* IdempotencyID
+* tool_id
+* reason_code
+* evidence (list(Hash))
+* time_observed
+* signature
+
+Reason codes:
+
+* 1 RequestHashConflict
+* 2 ResponseHashConflict
+* 3 MultipleCommits
+
+---
+
+## 7. Normative Effect Execution Rules
+
+### 7.1 Effects Without Idempotency Key
+
+If an effect input does not include an idempotency_key:
+
+* The runtime MUST treat the effect as non-deduplicable.
+* The runtime MUST NOT automatically retry unless a tool policy explicitly declares retry safety.
+
+### 7.2 Register Before Invoke
+
+For effects with idempotency_key:
+
+* The runtime MUST write an EffectRegister entry before invoking the external tool.
+* The register MUST include a lease.
+
+### 7.3 Lease Rules
+
+* lease_expires_at MUST be set.
+* If a register exists and lease has not expired, other runtimes MUST NOT invoke the tool for the same IdempotencyID.
+* If the lease has expired, another runtime MAY take over by writing a new register with a later lease.
+
+### 7.4 Deduplication on Completed
+
+If a valid EffectCommit exists for IdempotencyID:
+
+* The runtime MUST NOT invoke the external tool.
+* The runtime MUST return the receipt referenced by EffectCommit.
+
+### 7.5 Request Hash Conflict
+
+If a register or commit exists for IdempotencyID with a different request_hash than the current request:
+
+* The runtime MUST NOT invoke the external tool.
+* The runtime MUST emit a DivergenceMark with reason RequestHashConflict.
+* The runtime MUST return an error `IdempotencyConflict`.
+
+### 7.6 Commit After Invoke
+
+After invoking a tool, the runtime MUST:
+
+* create a Receipt per RFC-MYTHOS-0001
+* write an EffectCommit entry referencing the receipt
+
+### 7.7 Multiple Commits
+
+If multiple commits are observed for the same IdempotencyID:
+
+* If all commits have identical request_hash and identical response_hash and identical status, the record is not divergent. The runtime MAY treat it as redundant.
+* Otherwise, the runtime MUST write DivergenceMark with reason MultipleCommits and MUST fail closed for replay.
+
+### 7.8 Response Hash Conflict
+
+If the same IdempotencyID and request_hash produces differing response_hash values:
+
+* The runtime MUST write DivergenceMark with reason ResponseHashConflict.
+* The runtime MUST NOT replay a cached receipt automatically.
+* The runtime MUST return an error `NonDeterministicEffect`.
+
+---
+
+## 8. Replay, Retry, and Caching
+
+### 8.1 Replay
+
+Replay means returning an existing receipt without a new external invocation.
+
+Replay is allowed only when:
+
+* a single non-divergent EffectCommit exists
+* request_hash matches
+
+### 8.2 Retry
+
+Retry means invoking the external tool again.
+
+Retry is allowed only when:
+
+* no EffectCommit exists
+* lease has expired or the current runtime owns the lease
+* tool policy permits retries OR the tool call is known idempotent for the given idempotency_key
+
+### 8.3 Cache Key
+
+If a tool policy declares responses cacheable, the runtime MAY cache responses by:
+
+* tool_id
+* request_hash
+
+If cached, the runtime MUST still record a Receipt and an EffectCommit for idempotency_key based calls.
+
+---
+
+## 9. Exactly-Once Discussion (Normative Constraint)
+
+Within MYTHOS, a runtime can provide at-most-once invocation per IdempotencyID, subject to lease takeover semantics.
+
+External systems may still perform the side effect multiple times due to network failures or tool bugs.
+
+Therefore:
+
+* MYTHOS provides deterministic deduplication and strong auditing.
+* Tool implementations SHOULD support idempotency keys end-to-end.
+
+---
+
+## 10. Security Considerations
+
+* Ledgers contain sensitive operational data. Access MUST be capability-gated.
+* Leases prevent concurrent invocations. Attackers with cap access could still spam registers. Quotas SHOULD be enforced.
+* Divergent states must fail closed to prevent ambiguous side effects.
+
+---
+
+## 11. Appendix A, Field Numbers (Normative)
+
+### A.1 EffectRegister
+
+Struct `EffectRegister` fields:
+
+1. `idem_id` (Hash)
+2. `tool_id` (Hash)
+3. `request_hash` (Hash)
+4. `idempotency_key` (bytes)
+5. `owner` (AgentID)
+6. `lease_expires_at` (Time)
+7. `time_observed` (Time)
+8. `signature` (Signature)
+
+Register id computation (recommended):
+
+* `register_id = SHA-256( canonical_bytes(EffectRegister without field 8) )`
+
+### A.2 EffectCommit
+
+Struct `EffectCommit` fields:
+
+1. `idem_id` (Hash)
+2. `tool_id` (Hash)
+3. `request_hash` (Hash)
+4. `response_hash` (Hash)
+5. `receipt_id` (Hash)
+6. `status` (u16)
+7. `time_observed` (Time)
+8. `signature` (Signature)
+
+Commit id computation (recommended):
+
+* `commit_id = SHA-256( canonical_bytes(EffectCommit without field 8) )`
+
+### A.3 DivergenceMark
+
+Struct `DivergenceMark` fields:
+
+1. `idem_id` (Hash)
+2. `tool_id` (Hash)
+3. `reason_code` (u8)
+4. `evidence` (list(Hash))
+5. `time_observed` (Time)
+6. `signature` (Signature)
+
