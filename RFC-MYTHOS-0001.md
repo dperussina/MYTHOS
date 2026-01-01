@@ -679,12 +679,819 @@ A practical v0.2 build strategy is IR-first:
 
 ---
 
-## 23. Appendix A, Required Struct Field Numbers
+## 23. Appendix A, Required Struct Field Numbers (Normative)
 
-This appendix is reserved for the definitive field numbering tables for each struct in v0.2. Implementations MUST use the published field numbers for wire compatibility.
+This appendix defines the canonical field numbers for core structs in MYTHOS v0.2. All implementations MUST use these field numbers when encoding structs in MYTHOS-CAN.
+
+### A.1 Hash
+
+Struct `Hash` fields:
+
+1. `alg` (u8)
+2. `bytes` (bytes)
+
+Hash algorithm ids:
+
+* 1 SHA-256
+
+### A.2 Time
+
+Time is encoded as a signed integer `i64` representing **microseconds since Unix epoch (UTC)**.
+
+### A.3 AgentID
+
+Struct `AgentID` fields:
+
+1. `scheme` (u8)
+2. `key` (bytes)
+3. `hint` (text, optional)
+
+AgentID scheme ids:
+
+* 1 Ed25519 public key
+
+### A.4 Signature
+
+Struct `Signature` fields:
+
+1. `alg` (u8)
+2. `key_id` (Hash, optional)
+3. `sig_bytes` (bytes)
+
+Signature algorithm ids:
+
+* 1 Ed25519
+
+### A.5 Meta
+
+Struct `Meta` fields:
+
+1. `spec` (text)
+2. `version` (u16)
+3. `created_at` (Time, optional)
+4. `author` (AgentID)
+5. `artifact_id` (Hash)
+6. `signatures` (list(Signature))
+7. `notes` (text, optional)
+8. `extensions` (map(text, bytes), optional)
+
+### A.6 EncryptRef
+
+Struct `EncryptRef` fields:
+
+1. `scheme` (u8)
+2. `key_handle` (text)
+3. `nonce` (bytes)
+4. `aad` (bytes, optional)
+5. `plain_hash` (Hash, optional)
+
+Encryption scheme ids:
+
+* 1 age
+* 2 aes-gcm
+* 3 kms-envelope
+
+### A.7 ProvenanceRef
+
+Struct `ProvenanceRef` fields:
+
+1. `parents` (list(Hash))
+2. `transform` (text)
+3. `params` (map(text, text))
+4. `code_hash` (Hash)
+5. `time_observed` (Time, optional)
+
+### A.8 BlobRef
+
+Struct `BlobRef` fields:
+
+1. `cid` (Hash)
+2. `size` (u64)
+3. `media` (text)
+4. `codec` (u8)
+5. `chunks` (u32)
+6. `encryption` (EncryptRef, optional)
+7. `provenance` (ProvenanceRef, optional)
+
+Codec ids:
+
+* 0 raw
+* 1 zstd
+* 2 gzip
+* 3 jpeg
+* 4 png
+* 5 jsoncbor
+* 6 parquet
+
+### A.9 Receipt
+
+Struct `Receipt` fields:
+
+1. `receipt_id` (Hash)
+2. `tool_id` (Hash)
+3. `request_hash` (Hash)
+4. `response_hash` (Hash)
+5. `idempotency_key` (bytes)
+6. `signer` (AgentID)
+7. `time_observed` (Time)
+8. `status` (u16)
+9. `evidence` (list(Hash), optional)
+10. `notes` (text, optional)
+11. `signature` (Signature)
+
+Receipt id computation (normative):
+
+* `receipt_id = SHA-256( canonical_bytes(Receipt without fields 1 and 11) )`
+* The signature signs `receipt_id.bytes`.
+
+### A.10 Attestation
+
+Struct `Attestation` fields:
+
+1. `attestation_id` (Hash)
+2. `subject_hash` (Hash)
+3. `claim_type` (u8)
+4. `result` (u16)
+5. `evidence` (list(Hash), optional)
+6. `signer` (AgentID)
+7. `time_observed` (Time)
+8. `signature` (Signature)
+9. `notes` (text, optional)
+
+Claim types:
+
+* 1 ContractPass
+* 2 EvalPass
+* 3 EvalMetric
+* 4 QuorumSignoff
+
+Attestation id computation:
+
+* `attestation_id = SHA-256( canonical_bytes(Attestation without fields 1 and 8) )`
+* The signature signs `attestation_id.bytes`.
+
+### A.11 Capability
+
+Struct `Capability` fields:
+
+1. `cap_id` (Hash)
+2. `issuer` (AgentID)
+3. `subject` (AgentID)
+4. `scope` (CapScope)
+5. `not_before` (Time)
+6. `expires_at` (Time)
+7. `delegable` (bool)
+8. `attenuation_parent` (Hash, optional)
+9. `revocation_required` (bool, optional, default false)
+10. `signature` (Signature)
+
+Capability id computation:
+
+* `cap_id = SHA-256( canonical_bytes(Capability without fields 1 and 10) )`
+* The signature signs `cap_id.bytes`.
+
+### A.12 CapScope
+
+Struct `CapScope` fields:
+
+1. `kind` (u8)
+2. `payload` (bytes, MYTHOS-CAN encoded nested scope struct)
+
+CapScope kinds:
+
+* 1 BlobRead
+* 2 BlobWrite
+* 3 BlobPin
+* 4 BlobDelete
+* 5 ToolCall
+* 6 TrainRun
+* 7 EvalRun
+* 8 DeployPromote
+* 9 ComputeSpawn
+* 10 CellRead
+* 11 CellWrite
+
+Nested scope structs (encoded into `payload`):
+
+**BlobReadScope** fields:
+
+1. `cid` (Hash)
+2. `range_start` (u64, optional)
+3. `range_len` (u64, optional)
+
+**BlobWriteScope** fields:
+
+1. `namespace` (text)
+2. `max_size` (u64)
+3. `media_allow` (list(text))
+
+**BlobPinScope** fields:
+
+1. `cid` (Hash)
+2. `ttl_us` (u64)
+
+**BlobDeleteScope** fields:
+
+1. `cid` (Hash)
+
+**ToolCallScope** fields:
+
+1. `tool_id` (Hash)
+2. `max_calls` (u32)
+3. `constraints` (map(text, text), optional)
+
+**TrainRunScope** fields:
+
+1. `recipe_id` (Hash)
+2. `max_jobs` (u32)
+3. `max_tokens` (u64)
+4. `max_gpu_ms` (u64, optional)
+
+**EvalRunScope** fields:
+
+1. `suite_id` (Hash)
+2. `max_runs` (u32)
+
+**DeployPromoteScope** fields:
+
+1. `ring_id` (u8)
+2. `policy_id` (Hash)
+
+**ComputeSpawnScope** fields:
+
+1. `pool_id` (Hash)
+2. `max_workers` (u32)
+3. `max_cpu_us` (u64)
+4. `max_io` (u32)
+
+**CellReadScope** fields:
+
+1. `cell_id` (Hash)
+2. `key_prefix` (bytes, optional)
+
+**CellWriteScope** fields:
+
+1. `cell_id` (Hash)
+2. `max_events` (u32)
+3. `event_type_allow` (list(u32), optional)
+
+### A.13 MYTHOS-X SigBlockEntry
+
+Struct `SigBlockEntry` fields:
+
+1. `signer` (AgentID)
+2. `sig_alg` (u8)
+3. `sig_bytes` (bytes)
+
+### A.14 MYTHOS-IR Core Structs
+
+Struct `IRBundle` fields:
+
+1. `meta` (Meta)
+2. `const_pool` (ConstPool)
+3. `node_pool` (NodePool)
+4. `types` (TypeTable)
+5. `symbols` (SymbolTable)
+6. `contracts` (ContractTable)
+7. `tools` (ToolTable)
+8. `ops` (OpStream)
+9. `tasks` (TaskTable)
+
+Struct `ConstPool` fields:
+
+1. `consts` (list(Const))
+
+Struct `Const` fields:
+
+1. `kind` (u8)
+2. `i64` (i64, optional)
+3. `u64` (u64, optional)
+4. `bytes` (bytes, optional)
+5. `text` (text, optional)
+6. `hash` (Hash, optional)
+
+Const kinds:
+
+* 1 I64
+* 2 U64
+* 3 Bytes
+* 4 Text
+* 5 Hash
+
+Struct `NodePool` fields:
+
+1. `nodes` (list(Node))
+
+Struct `Node` fields:
+
+1. `type_id` (Hash)
+2. `kind` (u8)
+3. `fields` (map(u32, Operand), optional)
+4. `items` (list(Operand), optional)
+
+Node kinds:
+
+* 1 Record
+* 2 List
+
+Struct `TypeTable` fields:
+
+1. `types` (list(TypeDef))
+
+Struct `TypeDef` fields:
+
+1. `type_id` (Hash)
+2. `kind` (u8)
+3. `name` (text, optional)
+4. `fields` (list(FieldDef), optional)
+5. `enum_tags` (list(text), optional)
+
+Type kinds:
+
+* 1 Record
+* 2 Enum
+
+Struct `FieldDef` fields:
+
+1. `field_id` (u32)
+2. `name` (text, optional)
+3. `field_type_id` (Hash)
+4. `required` (bool)
+
+Struct `SymbolTable` fields:
+
+1. `symbols` (list(SymbolSig))
+
+Struct `SymbolSig` fields:
+
+1. `module_id` (Hash)
+2. `name` (text, optional)
+3. `arg_type_ids` (list(Hash))
+4. `return_type_id` (Hash)
+
+Struct `ContractTable` fields:
+
+1. `contracts` (list(ContractDef))
+
+Struct `ContractDef` fields:
+
+1. `contract_id` (Hash)
+2. `name` (text, optional)
+3. `requires_expr` (Expr)
+4. `ensures_expr` (Expr)
+5. `invariant_expr` (Expr, optional)
+
+Struct `ToolTable` fields:
+
+1. `tools` (list(ToolDef))
+
+Struct `ToolDef` fields:
+
+1. `tool_id` (Hash)
+2. `name` (text, optional)
+3. `request_type_id` (Hash)
+4. `response_type_id` (Hash)
+
+Struct `OpStream` fields:
+
+1. `ops` (list(Op))
+
+Struct `Op` fields:
+
+1. `opcode` (u8)
+2. `operands` (list(Operand))
+
+Struct `Operand` fields:
+
+1. `kind` (u8)
+2. `u64` (u64, optional)
+3. `i64` (i64, optional)
+4. `hash` (Hash, optional)
+5. `node_ref` (u32, optional)
+6. `const_ref` (u32, optional)
+
+Operand kinds:
+
+* 1 Reg (u64 holds register index)
+* 2 ConstRef (const_ref)
+* 3 NodeRef (node_ref)
+* 4 U64 (u64)
+* 5 I64 (i64)
+* 6 Hash (hash)
+
+Struct `TaskTable` fields:
+
+1. `tasks` (list(TaskDef))
+
+Struct `TaskDef` fields:
+
+1. `task_id` (Hash)
+2. `entry_symbol` (Hash)
+3. `args` (list(Operand))
+4. `budget` (Budget)
+5. `emit_trace` (bool)
+6. `emit_attestation` (bool)
+
+Struct `Budget` fields:
+
+1. `cpu_us` (u64)
+2. `tokens` (u64, optional)
+3. `io_count` (u32)
+4. `state_writes` (u32)
+5. `deadline_us` (u64, optional)
+6. `max_depth` (u16, optional)
+7. `max_spawn` (u16, optional)
+
+### A.15 Learning Structs
+
+Struct `TraceRef` fields:
+
+1. `trace_blob` (BlobRef)
+2. `receipt_ids` (list(Hash))
+
+Struct `EpisodeRef` fields:
+
+1. `episode_id` (Hash)
+2. `trace_ref` (TraceRef)
+3. `context_hash` (Hash)
+4. `outcome_hash` (Hash)
+5. `time_observed` (Time)
+
+Episode id computation:
+
+* `episode_id = SHA-256( canonical_bytes(EpisodeRef without field 1) )`
+
+Struct `Signal` fields:
+
+1. `signal_id` (Hash)
+2. `episode_id` (Hash)
+3. `signal_type` (u8)
+4. `value_kind` (u8)
+5. `value_bytes` (bytes)
+6. `signer` (AgentID)
+7. `time_observed` (Time)
+8. `signature` (Signature)
+
+Signal types:
+
+* 1 Reward
+* 2 Label
+* 3 Constraint
+
+Struct `DatasetDef` fields:
+
+1. `dataset_def_id` (Hash)
+2. `corpus_roots` (list(Hash))
+3. `query` (QueryDef)
+4. `sampling` (SamplingDef)
+5. `stratify` (StratifyDef, optional)
+
+Struct `DatasetRef` fields:
+
+1. `dataset_def_id` (Hash)
+2. `manifest` (BlobRef)
+3. `count` (u64)
+4. `build_receipt_id` (Hash)
+
+Struct `RecipeDef` fields:
+
+1. `recipe_id` (Hash)
+2. `base_model` (Hash)
+3. `train_code_hash` (Hash)
+4. `hyperparams` (map(text, text))
+
+Struct `ModelRef` fields:
+
+1. `model_id` (Hash)
+2. `weights` (BlobRef)
+3. `config` (BlobRef)
+4. `code_hash` (Hash)
+5. `parent_model_id` (Hash, optional)
+
+Struct `EvalSuiteDef` fields:
+
+1. `suite_id` (Hash)
+2. `suite_code_hash` (Hash)
+3. `tests_manifest` (BlobRef)
+4. `metrics` (list(text))
+
+Struct `PromotionRecord` fields:
+
+1. `promotion_id` (Hash)
+2. `model_id` (Hash)
+3. `ring_id` (u8)
+4. `policy_id` (Hash)
+5. `eval_attestations` (list(Hash))
+6. `signer` (AgentID)
+7. `time_observed` (Time)
+8. `signature` (Signature)
 
 ---
 
-## 24. Appendix B, Baseline Codebook
+## 24. Appendix B, Baseline Codebook (Normative)
 
-This appendix is reserved for the baseline codebook entries for v0.2.
+This appendix defines the baseline codebook used by MYTHOS-X when codebook compression is enabled. For CodecID=1 (raw MYTHOS-CAN IRBundle), the baseline codebook MUST still be declared in the packet header unless a negotiated codebook is in effect.
+
+### B.1 CodebookEntry
+
+Struct `CodebookEntry` fields:
+
+1. `codeword` (u16)
+2. `kind` (u8)
+3. `value_u64` (u64, optional)
+4. `value_bytes` (bytes, optional)
+5. `value_hash` (Hash, optional)
+6. `value_text` (text, optional)
+
+Codebook entry kinds:
+
+* 1 Opcode
+* 2 SmallInt
+* 3 FieldNum
+* 4 EnumTag
+
+### B.2 Codeword Ranges
+
+Baseline ranges are reserved as:
+
+* 0x0100 to 0x01FF, opcodes, codeword = 0x0100 + opcode
+* 0x0200 to 0x02FF, small integers 0 to 255, codeword = 0x0200 + n
+* 0x0300 to 0x03FF, common field numbers 0 to 255, codeword = 0x0300 + field
+* 0x0400 to 0x04FF, enum tags for CapScope kinds, codeword = 0x0400 + kind
+
+### B.3 Opcode Entries
+
+For each opcode `op` in Section 11, the baseline codebook contains:
+
+* codeword = 0x0100 + op
+* kind = Opcode
+* value_u64 = op
+
+### B.4 SmallInt Entries
+
+For each integer n in 0..255:
+
+* codeword = 0x0200 + n
+* kind = SmallInt
+* value_u64 = n
+
+### B.5 FieldNum Entries
+
+For each field number f in 0..255:
+
+* codeword = 0x0300 + f
+* kind = FieldNum
+* value_u64 = f
+
+### B.6 CapScope Kind Entries
+
+For each CapScope kind k in Section 12.2:
+
+* codeword = 0x0400 + k
+* kind = EnumTag
+* value_u64 = k
+
+### B.7 Baseline CodebookID
+
+Baseline CodebookID is computed as:
+
+* `CodebookID = SHA-256( canonical_bytes( list(CodebookEntry) ) )`
+
+The entry list MUST be ordered by ascending `codeword`.
+
+---
+
+# RFC-MYTHOS-0003
+
+## Deterministic Dataset Query and Sampling (v0.2)
+
+**Category:** Standards Track (Draft)
+**Intended Status:** Proposed Standard
+**Version:** 0.2
+
+---
+
+## 1. Abstract
+
+This RFC specifies a deterministic dataset query language and sampling algorithm for MYTHOS learning objects.
+
+Given:
+
+* A fixed corpus of immutable episode logs (corpus roots)
+* A DatasetDef that includes a QueryDef and SamplingDef
+
+All compliant implementations MUST produce an identical DatasetRef manifest, byte-for-byte, including the same ordered list of EpisodeIDs.
+
+---
+
+## 2. Corpus Model
+
+### 2.1 Corpus Roots
+
+A dataset is built from a set of corpus roots:
+
+* `corpus_roots` is a list of Hash values.
+
+Each corpus root identifies a canonical episode list, encoded as a Merkle list of EpisodeIDs.
+
+### 2.2 EpisodeID
+
+EpisodeID is `episode_id` from `EpisodeRef` (Appendix A.15).
+
+### 2.3 Canonical Episode Order
+
+Within a corpus root, EpisodeIDs MUST be ordered ascending by canonical EpisodeID bytes.
+
+The dataset build algorithm MUST preserve a deterministic order:
+
+1. Corpus roots are ordered ascending by canonical hash bytes.
+2. EpisodeIDs are streamed in that corpus order.
+3. After filtering and sampling, the final manifest is ordered ascending by EpisodeID bytes.
+
+---
+
+## 3. DatasetDef and Manifest
+
+### 3.1 DatasetDef Canonicalization
+
+`DatasetDef.dataset_def_id` MUST be computed as SHA-256 of canonical DatasetDef bytes excluding field 1.
+
+### 3.2 Manifest
+
+A dataset manifest is a BlobRef whose blob bytes are a canonical Merkle list of EpisodeIDs, in ascending order.
+
+The manifest BlobRef MUST have:
+
+* media = `application/mythos.episode.manifest`
+* codec = raw or zstd
+
+---
+
+## 4. QueryDef
+
+### 4.1 QueryDef Fields
+
+Struct `QueryDef` fields:
+
+1. `query_id` (Hash)
+2. `predicate` (Expr)
+
+Query id computation:
+
+* `query_id = SHA-256( canonical_bytes(QueryDef without field 1) )`
+
+### 4.2 Expr
+
+Expr is a deterministic AST.
+
+Struct `Expr` fields:
+
+1. `op` (u8)
+2. `args` (list(Expr), optional)
+3. `path` (FieldPath, optional)
+4. `lit` (Operand, optional)
+5. `set` (list(Operand), optional)
+
+Expr ops:
+
+* 1 TRUE
+* 2 FALSE
+* 10 EQ
+* 11 NE
+* 12 LT
+* 13 LE
+* 14 GT
+* 15 GE
+* 20 AND
+* 21 OR
+* 22 NOT
+* 30 IN_SET
+* 40 HAS_TOOL
+* 41 HAS_STATUS
+
+### 4.3 FieldPath
+
+Struct `FieldPath` fields:
+
+1. `root` (u8)
+2. `segments` (list(u32))
+
+Roots:
+
+* 1 Episode
+* 2 Signal
+
+Segments are field numbers within the corresponding struct schema.
+
+### 4.4 Evaluation Semantics
+
+An expression evaluates over an EpisodeRef and its attached Signals.
+
+* Field reads MUST return a canonical "missing" if any segment is absent.
+* Comparisons against missing MUST evaluate as FALSE, except NE which is TRUE if the literal is present.
+* `HAS_TOOL(tool_id)` is TRUE if any Receipt in the Episode trace references that tool_id.
+* `HAS_STATUS(status)` is TRUE if any Receipt status equals the provided u16.
+
+Regex and locale-dependent string operations are NOT allowed in v0.2.
+
+---
+
+## 5. SamplingDef
+
+### 5.1 SamplingDef Fields
+
+Struct `SamplingDef` fields:
+
+1. `mode` (u8)
+2. `n` (u64, optional)
+3. `seed` (Hash)
+
+Sampling modes:
+
+* 1 ALL
+* 2 FIRST_N
+* 3 HASH_N
+
+### 5.2 FIRST_N
+
+FIRST_N selects the first N EpisodeIDs after filtering, in streaming corpus order.
+
+### 5.3 HASH_N
+
+HASH_N selects N EpisodeIDs with the lowest deterministic scores.
+
+Score definition:
+
+* `score(id) = U64( first 8 bytes of SHA-256( seed.bytes || id.bytes ) )`
+
+Selection:
+
+* Compute score for every candidate.
+* Select the N smallest scores.
+* Ties are broken by EpisodeID bytes ascending.
+
+This algorithm is deterministic and order independent.
+
+---
+
+## 6. StratifyDef
+
+### 6.1 StratifyDef Fields
+
+Struct `StratifyDef` fields:
+
+1. `key_path` (FieldPath)
+2. `per_bucket_n` (u64)
+3. `seed` (Hash)
+
+### 6.2 Semantics
+
+Stratification partitions candidates by key value read from `key_path`.
+
+For each bucket:
+
+* Define bucket seed as `SHA-256( seed.bytes || canonical_bytes(bucket_key) )`
+* Apply HASH_N with N = per_bucket_n within that bucket
+
+The final manifest is the union of bucket selections, ordered by EpisodeID ascending.
+
+Buckets with missing keys MUST be treated as a single bucket with key = empty bytes.
+
+---
+
+## 7. Dataset Build Algorithm (Normative)
+
+Given DatasetDef:
+
+1. Load and stream EpisodeIDs from each corpus root in canonical corpus order.
+2. For each EpisodeID, load EpisodeRef and attached Signals as needed to evaluate the predicate.
+3. Filter by predicate.
+4. If StratifyDef is present, partition candidates by key and sample per bucket.
+5. Else, sample using SamplingDef.
+6. Sort selected EpisodeIDs ascending.
+7. Write manifest as a Merkle list blob.
+8. Emit a build receipt and return DatasetRef.
+
+Implementations MAY cache EpisodeRef and Signal retrieval. Caching MUST NOT affect results.
+
+---
+
+## 8. Conformance Tests (Recommended)
+
+Implementations SHOULD publish:
+
+* test corpora roots (episode lists)
+* dataset definitions
+* expected manifest hashes
+
+---
+
+## 9. Security Considerations
+
+Dataset queries can leak sensitive attributes through selection. Access to corpus roots and dataset construction MUST be capability-gated.
+
+---
+
+## 10. Privacy Considerations
+
+Datasets SHOULD prefer redacted episodes and minimized traces when feasible.
