@@ -1,0 +1,36 @@
+[workspace]
+resolver = "2"
+
+members = [
+    "libs/mythos-can",
+    "libs/mythos-hash",
+    "libs/mythos-merkle",
+    "libs/mythos-receipts",
+    "libs/mythos-ledger",
+    "libs/mythos-x", "tools/ctvp-runner", "libs/mythos-blob", "libs/mythos-dataset", "libs/mythos-codebook", "libs/mythos-wire",
+]
+
+[workspace.package]
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["MYTHOS Contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/mythos/mythos"
+
+[workspace.dependencies]
+# Common dependencies across all crates
+sha2 = "0.10"
+ed25519-dalek = "2.1"
+thiserror = "1.0"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+
+[profile.dev]
+opt-level = 0
+
+[profile.test]
+opt-level = 1

@@ -1,0 +1,14 @@
+[package]
+name = "mythos-dataset"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+sha2 = "0.10"
+mythos-can = { path = "../mythos-can" }
+
+[dev-dependencies]
+hex = "0.4"

@@ -1,0 +1,16 @@
+[package]
+name = "mythos-blob"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+sha2 = "0.10"
+mythos-can = { path = "../mythos-can" }
+thiserror = "1.0"
+
+[dev-dependencies]
+hex = "0.4"
+serde_json = "1.0"

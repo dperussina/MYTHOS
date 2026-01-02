@@ -1,0 +1,50 @@
+name: CTVP Conformance Gate
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  conformance:
+    name: MYTHOS Conformance Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            runtime/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run mythos-can unit tests
+        working-directory: ./runtime
+        run: cargo test -p mythos-can --lib --tests
+
+      - name: CTVP Conformance Gate (ALL SUITES - 100% Coverage)
+        working-directory: ./runtime
+        run: |
+          # 100% Coverage achieved - all 10 vectors must pass
+          # Exit 1 on any failure
+          cargo run -p ctvp-runner -- verify --pack ../mythos-v0.2-conformance --suite all --fail-fast
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctvp-results
+          path: runtime/target/debug/ctvp-runner
